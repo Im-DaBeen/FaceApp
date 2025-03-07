@@ -2,43 +2,38 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Webcam Streaming</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Face Mesh with Mediapipe</title>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils"></script>
     <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-            background-color: #f0f0f0;
-        }
-        #webcam {
+        video, canvas {
+            position: absolute;
+            left: 0;
+            top: 0;
             width: 640px;
             height: 480px;
-            background-color: #000;
-            border-radius: 10px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            transform:scaleX(-1); /* 좌우 대칭 추가*/
         }
     </style>
 </head>
 <body>
+
     <video id="webcam" autoplay playsinline></video>
+    <canvas id="output"></canvas>
 
     <script>
+        // 웹캠 설정
         async function setupWebcam() {
             const videoElement = document.getElementById('webcam');
 
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({
-                    video: { 
-                        width: { ideal: 640 },
-                        height: { ideal: 480 }
-                    }
+                    video: { width: { ideal: 640 }, height: { ideal: 480 } }
                 });
 
                 videoElement.srcObject = stream;
-                
+
                 return new Promise((resolve) => {
                     videoElement.onloadedmetadata = () => {
                         videoElement.play();
@@ -52,8 +47,59 @@
             }
         }
 
-        // 페이지 로드 시 웹캠 실행
-        document.addEventListener('DOMContentLoaded', setupWebcam);
+        // Canvas 요소 가져오기
+        const canvasElement = document.getElementById('output');
+        const canvasCtx = canvasElement.getContext('2d');
+
+        // Mediapipe Face Mesh 초기화
+        const faceMesh = new FaceMesh({
+            locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`,
+        });
+
+        faceMesh.setOptions({
+            maxNumFaces: 1, 
+            minDetectionConfidence: 0.5,
+            minTrackingConfidence: 0.5,
+        });
+
+        faceMesh.onResults((results) => {
+            // Canvas 크기 설정
+            canvasElement.width = webcam.videoWidth;
+            canvasElement.height = webcam.videoHeight;
+
+            // Canvas 초기화 (지우기)
+            canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+            
+            // 비디오 스트림을 캔버스에 그림
+            canvasCtx.drawImage(webcam, 0, 0, canvasElement.width, canvasElement.height);
+
+            if (results.multiFaceLandmarks) {
+                for (const landmarks of results.multiFaceLandmarks) {
+                    // 얼굴 랜드마크를 캔버스에 그리기
+                    for (const point of landmarks) {
+                        const x = point.x * canvasElement.width;
+                        const y = point.y * canvasElement.height;
+                        canvasCtx.fillStyle = "red";
+                        canvasCtx.beginPath();
+                        canvasCtx.arc(x, y, 1, 0, 2 * Math.PI);
+                        canvasCtx.fill();
+                    }
+                }
+            }
+        });
+
+        // 웹캠이 설정된 후 Mediapipe 실행
+        setupWebcam().then(() => {
+            new Camera(webcam, {
+                onFrame: async () => {
+                    await faceMesh.send({ image: webcam });
+                },
+                width: 640,
+                height: 480,
+            }).start();
+        });
+
     </script>
+
 </body>
 </html>
