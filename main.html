@@ -69,8 +69,13 @@
 
             // Canvas 초기화 (지우기)
             canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
+
+            // 좌우 반전 적용
+            canvasCtx.save();  // 현재 상태 저장
+            canvasCtx.translate(canvasElement.width, 0); // 오른쪽 끝으로 이동
+            canvasCtx.scale(-1, 1); // 좌우 반전
             
-            // 비디오 스트림을 캔버스에 그림
+            // 비디오 스트림을 캔버스에 그림 (좌우 반전 상태)
             canvasCtx.drawImage(webcam, 0, 0, canvasElement.width, canvasElement.height);
 
             if (results.multiFaceLandmarks) {
@@ -79,7 +84,7 @@
                     for (const point of landmarks) {
                         const x = point.x * canvasElement.width;
                         const y = point.y * canvasElement.height;
-                        canvasCtx.fillStyle = "red";
+                        canvasCtx.fillStyle = "white";
                         canvasCtx.beginPath();
                         canvasCtx.arc(x, y, 1, 0, 2 * Math.PI);
                         canvasCtx.fill();
